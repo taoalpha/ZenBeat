@@ -116,20 +116,8 @@ class ReminderManager: ObservableObject {
         let profileCount = (try? context.fetchCount(profileDesc)) ?? 0
         
         if profileCount == 0 {
-            // Migration: Create Default Profile
             let defaultProfile = Profile(name: "Default", icon: "person.circle")
             context.insert(defaultProfile)
-            
-            // Move existing orphan reminders to this profile
-            let reminderDesc = FetchDescriptor<Reminder>()
-            if let existingReminders = try? context.fetch(reminderDesc) {
-                for reminder in existingReminders {
-                    if reminder.profile == nil {
-                        reminder.profile = defaultProfile
-                    }
-                }
-            }
-            
             try? context.save()
             currentProfile = defaultProfile
         }
@@ -343,11 +331,11 @@ class ReminderManager: ObservableObject {
     }
     
     private func isInDNDMode() -> Bool {
-        let dndEnabled = UserDefaults.standard.bool(forKey: "dndEnabled")
-        if !dndEnabled { return false }
+        guard let profile = currentProfile else { return false }
+        if !profile.dndEnabled { return false }
         
-        let start = UserDefaults.standard.double(forKey: "dndStartTime")
-        let end = UserDefaults.standard.double(forKey: "dndEndTime")
+        let start = profile.dndStartTime
+        let end = profile.dndEndTime
         
         let calendar = Calendar.current
         let now = Date()
@@ -369,11 +357,11 @@ class ReminderManager: ObservableObject {
     }
     
     func getLatestEffectiveDNDEndTime() -> Date? {
-        let dndEnabled = UserDefaults.standard.bool(forKey: "dndEnabled")
-        if !dndEnabled { return nil }
+        guard let profile = currentProfile else { return nil }
+        if !profile.dndEnabled { return nil }
         
-        let start = UserDefaults.standard.double(forKey: "dndStartTime")
-        let end = UserDefaults.standard.double(forKey: "dndEndTime")
+        let start = profile.dndStartTime
+        let end = profile.dndEndTime
         
         let calendar = Calendar.current
         let now = Date()

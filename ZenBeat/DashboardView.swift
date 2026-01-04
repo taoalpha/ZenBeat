@@ -9,6 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct DashboardView: View {
+    @Environment(\.modelContext) var modelContext
     @EnvironmentObject var manager: ReminderManager
     @Environment(\.openWindow) var openWindow
     @ObservedObject private var i18n = LanguageManager.shared
@@ -122,6 +123,9 @@ struct DashboardView: View {
             }
         }
         .frame(width: 300, height: 400)
+        .onAppear {
+            manager.setModelContext(modelContext)
+        }
     }
     
     private func formatSnoozeTime(_ interval: TimeInterval) -> String {

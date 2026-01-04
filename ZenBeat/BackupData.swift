@@ -21,6 +21,9 @@ struct ProfileExport: Codable {
     let name: String
     let icon: String
     let createdAt: Date
+    let dndEnabled: Bool
+    let dndStartTime: TimeInterval
+    let dndEndTime: TimeInterval
     let reminders: [ReminderExport]
 }
 
@@ -90,6 +93,9 @@ extension ReminderManager {
                     name: profile.name,
                     icon: profile.icon,
                     createdAt: profile.createdAt,
+                    dndEnabled: profile.dndEnabled,
+                    dndStartTime: profile.dndStartTime,
+                    dndEndTime: profile.dndEndTime,
                     reminders: reminderExports
                 ))
             }
@@ -130,6 +136,9 @@ extension ReminderManager {
         for profileExport in backup.profiles {
             let profile = Profile(name: profileExport.name, icon: profileExport.icon)
             profile.createdAt = profileExport.createdAt
+            profile.dndEnabled = profileExport.dndEnabled
+            profile.dndStartTime = profileExport.dndStartTime
+            profile.dndEndTime = profileExport.dndEndTime
             context.insert(profile)
             importedProfiles.append(profile)
             

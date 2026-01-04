@@ -136,9 +136,6 @@ struct GeneralSettingsView: View {
     @EnvironmentObject var manager: ReminderManager
     @ObservedObject private var languageManager = LanguageManager.shared
     @AppStorage("launchAtLogin") private var launchAtLogin = false
-    @AppStorage("dndEnabled") private var dndEnabled = false
-    @AppStorage("dndStartTime") private var dndStartTime: Double = 20 * 3600 // 20:00 default
-    @AppStorage("dndEndTime") private var dndEndTime: Double = 8 * 3600   // 08:00 default
     @State private var showEraseConfirmation = false
     @State private var errorMessage: String?
     @State private var showErrorMessage = false
@@ -194,57 +191,6 @@ struct GeneralSettingsView: View {
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
-                        }
-                    }
-                    .padding(12)
-                }
-                
-                // Do Not Disturb Section
-                GroupBox {
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(L10n.doNotDisturb)
-                                    .fontWeight(.medium)
-                                Text(L10n.dndDescription)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("", isOn: $dndEnabled)
-                                .labelsHidden()
-                                .toggleStyle(.switch)
-                                .tint(.green)
-                                .controlSize(.mini)
-                                .onChange(of: dndEnabled) { _, _ in
-                                    manager.refreshReminders()
-                                }
-                        }
-                        
-                        if dndEnabled {
-                            Divider()
-                            
-                            HStack {
-                                Text(L10n.startTime)
-                                Spacer()
-                                DatePicker("", selection: dndTimeBinding(for: $dndStartTime), displayedComponents: .hourAndMinute)
-                                    .labelsHidden()
-                                    .frame(width: 100)
-                                    .onChange(of: dndStartTime) { _, _ in
-                                        manager.refreshReminders()
-                                    }
-                            }
-                            
-                            HStack {
-                                Text(L10n.endTime)
-                                Spacer()
-                                DatePicker("", selection: dndTimeBinding(for: $dndEndTime), displayedComponents: .hourAndMinute)
-                                    .labelsHidden()
-                                    .frame(width: 100)
-                                    .onChange(of: dndEndTime) { _, _ in
-                                        manager.refreshReminders()
-                                    }
-                            }
                         }
                     }
                     .padding(12)
@@ -867,6 +813,7 @@ struct ProfilesSettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var newProfileName = ""
     @State private var showAddSheet = false
+    @State private var editingProfile: Profile?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -890,9 +837,16 @@ struct ProfilesSettingsView: View {
                 ScrollView {
                     VStack(spacing: 8) {
                         ForEach(manager.allProfiles, id: \.id) { profile in
-                            ProfileCard(profile: profile, isSelected: profile.id == manager.currentProfile?.id) {
-                                manager.switchProfile(to: profile)
-                            }
+                            ProfileCard(
+                                profile: profile,
+                                isSelected: profile.id == manager.currentProfile?.id,
+                                onSelect: {
+                                    manager.switchProfile(to: profile)
+                                },
+                                onEdit: {
+                                    editingProfile = profile
+                                }
+                            )
                         }
                     }
                 }
@@ -908,13 +862,17 @@ struct ProfilesSettingsView: View {
         .sheet(isPresented: $showAddSheet) {
             ProfileAddSheet(manager: manager)
         }
+        .sheet(item: $editingProfile) { profile in
+            ProfileEditSheet(manager: manager, profile: profile)
+        }
     }
 }
 
 struct ProfileCard: View {
     let profile: Profile
     let isSelected: Bool
-    let onTap: () -> Void
+    let onSelect: () -> Void
+    let onEdit: () -> Void
     
     var body: some View {
         HStack(spacing: 12) {
@@ -945,6 +903,15 @@ struct ProfileCard: View {
                     .font(.title2)
                     .foregroundStyle(.green)
             }
+            
+            // Edit Button
+            Button(action: onEdit) {
+                Image(systemName: "pencil.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .pointingCursor()
         }
         .padding(12)
         .background(
@@ -956,7 +923,7 @@ struct ProfileCard: View {
                 .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
         )
         .contentShape(Rectangle())
-        .onTapGesture(perform: onTap)
+        .onTapGesture(perform: onSelect)
         .pointingCursor()
     }
 }
@@ -1011,6 +978,142 @@ struct ProfileAddSheet: View {
         }
         .padding()
         .frame(width: 350)
+    }
+}
+
+struct ProfileEditSheet: View {
+    @ObservedObject var manager: ReminderManager
+    @Environment(\.dismiss) private var dismiss
+    let profile: Profile
+    
+    @State private var name: String
+    @State private var icon: String
+    @State private var dndEnabled: Bool
+    @State private var dndStartTime: TimeInterval
+    @State private var dndEndTime: TimeInterval
+    
+    init(manager: ReminderManager, profile: Profile) {
+        self.manager = manager
+        self.profile = profile
+        _name = State(initialValue: profile.name)
+        _icon = State(initialValue: profile.icon)
+        _dndEnabled = State(initialValue: profile.dndEnabled)
+        _dndStartTime = State(initialValue: profile.dndStartTime)
+        _dndEndTime = State(initialValue: profile.dndEndTime)
+    }
+    
+    let iconOptions = ["person.fill", "briefcase.fill", "house.fill", "figure.walk", "book.fill", "gamecontroller.fill"]
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            Text("Edit Profile")
+                .font(.title3.bold())
+            
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Profile Details")
+                    .font(.headline)
+                
+                TextField("Profile Name", text: $name)
+                    .textFieldStyle(.roundedBorder)
+                
+                HStack {
+                    Text("Icon:")
+                    ForEach(iconOptions, id: \.self) { iconName in
+                        Button {
+                            icon = iconName
+                        } label: {
+                            Image(systemName: iconName)
+                                .font(.title3)
+                                .padding(8)
+                                .background(icon == iconName ? Color.accentColor.opacity(0.2) : Color.clear)
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .pointingCursor()
+                    }
+                }
+            }
+            
+            Divider()
+            
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L10n.doNotDisturb)
+                            .font(.headline)
+                        Text(L10n.dndDescription)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: $dndEnabled)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .tint(.green)
+                        .controlSize(.mini)
+                }
+                
+                if dndEnabled {
+                    HStack {
+                        Text(L10n.startTime)
+                        Spacer()
+                        DatePicker("", selection: dndTimeBinding(for: $dndStartTime), displayedComponents: .hourAndMinute)
+                            .labelsHidden()
+                            .frame(width: 100)
+                    }
+                    
+                    HStack {
+                        Text(L10n.endTime)
+                        Spacer()
+                        DatePicker("", selection: dndTimeBinding(for: $dndEndTime), displayedComponents: .hourAndMinute)
+                            .labelsHidden()
+                            .frame(width: 100)
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            HStack {
+                Button(L10n.cancel) { dismiss() }
+                    .buttonStyle(AppButtonStyle(color: .secondary))
+                    .keyboardShortcut(.cancelAction)
+                
+                Spacer()
+                
+                Button(L10n.save) {
+                    guard !name.isEmpty else { return }
+                    profile.name = name
+                    profile.icon = icon
+                    profile.dndEnabled = dndEnabled
+                    profile.dndStartTime = dndStartTime
+                    profile.dndEndTime = dndEndTime
+                    manager.refreshReminders()
+                    dismiss()
+                }
+                .buttonStyle(AppButtonStyle())
+                .keyboardShortcut(.defaultAction)
+                .disabled(name.isEmpty)
+            }
+        }
+        .padding(24)
+        .frame(width: 400, height: 500)
+    }
+    
+    private func dndTimeBinding(for storage: Binding<Double>) -> Binding<Date> {
+        Binding(
+            get: {
+                let calendar = Calendar.current
+                let today = calendar.startOfDay(for: Date())
+                return today.addingTimeInterval(storage.wrappedValue)
+            },
+            set: { newDate in
+                let calendar = Calendar.current
+                let components = calendar.dateComponents([.hour, .minute], from: newDate)
+                let seconds = (components.hour ?? 0) * 3600 + (components.minute ?? 0) * 60
+                storage.wrappedValue = Double(seconds)
+            }
+        )
     }
 }
 
