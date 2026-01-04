@@ -128,6 +128,7 @@ struct SidebarButton: View {
             .clipShape(RoundedRectangle(cornerRadius: 6))
         }
         .buttonStyle(.plain)
+        .pointingCursor()
     }
 }
 
@@ -139,6 +140,8 @@ struct GeneralSettingsView: View {
     @AppStorage("dndStartTime") private var dndStartTime: Double = 20 * 3600 // 20:00 default
     @AppStorage("dndEndTime") private var dndEndTime: Double = 8 * 3600   // 08:00 default
     @State private var showEraseConfirmation = false
+    @State private var errorMessage: String?
+    @State private var showErrorMessage = false
     
     var body: some View {
         ScrollView {
@@ -264,6 +267,7 @@ struct GeneralSettingsView: View {
                                 Label("Export Backup", systemImage: "square.and.arrow.up")
                             }
                             .buttonStyle(.bordered)
+                            .pointingCursor()
                             
                             Button {
                                 importBackup()
@@ -271,6 +275,7 @@ struct GeneralSettingsView: View {
                                 Label("Import Backup", systemImage: "square.and.arrow.down")
                             }
                         .buttonStyle(.bordered)
+                        .pointingCursor()
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -294,6 +299,7 @@ struct GeneralSettingsView: View {
                             Label("Erase All Data", systemImage: "trash.fill")
                         }
                         .buttonStyle(.bordered)
+                        .pointingCursor()
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
@@ -310,6 +316,11 @@ struct GeneralSettingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will permanently delete all your profiles, reminders, and history. This action cannot be undone.")
+        }
+        .alert("Error", isPresented: $showErrorMessage, presenting: errorMessage) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { message in
+            Text(message)
         }
     }
     
@@ -362,6 +373,8 @@ struct GeneralSettingsView: View {
     
     private func exportBackup() {
         guard let data = manager.exportBackup() else {
+            errorMessage = "Failed to create backup: Data generation failed."
+            showErrorMessage = true
             print("Failed to create backup")
             return
         }
@@ -377,6 +390,8 @@ struct GeneralSettingsView: View {
                     try data.write(to: url)
                     print("Backup saved to \(url)")
                 } catch {
+                    errorMessage = "Failed to save backup: \(error.localizedDescription)"
+                    showErrorMessage = true
                     print("Failed to save backup: \(error)")
                 }
             }
@@ -397,6 +412,8 @@ struct GeneralSettingsView: View {
                     try manager.importBackup(from: data)
                     print("Backup restored successfully")
                 } catch {
+                    errorMessage = "Failed to restore backup: \(error.localizedDescription)"
+                    showErrorMessage = true
                     print("Failed to restore backup: \(error)")
                 }
             }
@@ -408,6 +425,8 @@ struct GeneralSettingsView: View {
             try manager.eraseAllData()
             print("All data erased successfully")
         } catch {
+            errorMessage = "Failed to erase data: \(error.localizedDescription)"
+            showErrorMessage = true
             print("Failed to erase data: \(error)")
         }
     }
@@ -938,6 +957,7 @@ struct ProfileCard: View {
         )
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
+        .pointingCursor()
     }
 }
 
@@ -970,11 +990,13 @@ struct ProfileAddSheet: View {
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
+                    .pointingCursor()
                 }
             }
             
             HStack {
                 Button(L10n.cancel) { dismiss() }
+                    .buttonStyle(AppButtonStyle(color: .secondary))
                     .keyboardShortcut(.cancelAction)
                 Spacer()
                 Button(L10n.save) {
@@ -982,6 +1004,7 @@ struct ProfileAddSheet: View {
                     manager.createProfile(name: name, icon: icon)
                     dismiss()
                 }
+                .buttonStyle(AppButtonStyle())
                 .keyboardShortcut(.defaultAction)
                 .disabled(name.isEmpty)
             }

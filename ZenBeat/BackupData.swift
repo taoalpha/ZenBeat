@@ -121,24 +121,18 @@ extension ReminderManager {
         
         let backup = try decoder.decode(BackupData.self, from: data)
         
-        // Clear existing data (optional - could merge instead)
-        let existingProfiles = try context.fetch(FetchDescriptor<Profile>())
-        for profile in existingProfiles {
-            context.delete(profile)
-        }
+        // 1. Safe clear
+        try performCleanSlate()
         
-        let existingEntries = try context.fetch(FetchDescriptor<ReminderEntry>())
-        for entry in existingEntries {
-            context.delete(entry)
-        }
+        // 2. Import data from backup
+        var importedProfiles: [Profile] = []
         
-        // Import profiles
         for profileExport in backup.profiles {
             let profile = Profile(name: profileExport.name, icon: profileExport.icon)
             profile.createdAt = profileExport.createdAt
             context.insert(profile)
+            importedProfiles.append(profile)
             
-            // Import reminders for this profile
             for reminderExport in profileExport.reminders {
                 let reminder = Reminder(
                     name: reminderExport.name,
@@ -152,7 +146,6 @@ extension ReminderManager {
                 reminder.profile = profile
                 context.insert(reminder)
                 
-                // Import entries for this reminder
                 for entryExport in reminderExport.entries {
                     let entry = ReminderEntry(
                         count: entryExport.count,
@@ -168,45 +161,61 @@ extension ReminderManager {
         
         try context.save()
         
-        // Refresh state
+        // 4. Update current profile to the first imported one (or sensible default)
+        if let firstProfile = importedProfiles.first {
+            self.currentProfile = firstProfile
+            UserDefaults.standard.set(firstProfile.id.uuidString, forKey: "selectedProfileId")
+        }
+        
+        // 5. Refresh and restart
         refreshProfiles()
         refreshReminders()
+        startTimer()
     }
     
     func eraseAllData() throws {
+        try performCleanSlate()
+        
+        // 4. Re-initialize state
+        ensureDefaultProfile()
+        refreshProfiles()
+        refreshReminders()
+        
+        // 5. Restart timer
+        startTimer()
+    }
+    
+    private func performCleanSlate() throws {
         guard let context = modelContext else {
             throw BackupError.noContext
         }
         
-        // Delete all entries first (due to relationships)
+        // 1. Stop timer and overlays to prevent background access to deleted objects
+        stopTimer()
+        showTimeUpOverlay = false
+        activeOverlayReminder = nil
+        nextDueReminder = nil
+        reminderToEdit = nil
+        
+        // 2. Clear local state references
+        reminders = []
+        allProfiles = []
+        currentProfile = nil
+        lastEntryTimes = [:]
+        notifiedReminderIds = []
+        snoozeEndTime = nil
+        
+        // 3. Delete all entries, reminders, and profiles from DB
         let entries = try context.fetch(FetchDescriptor<ReminderEntry>())
-        for entry in entries {
-            context.delete(entry)
-        }
+        for entry in entries { context.delete(entry) }
         
-        // Delete all reminders
-        let reminders = try context.fetch(FetchDescriptor<Reminder>())
-        for reminder in reminders {
-            context.delete(reminder)
-        }
+        let rems = try context.fetch(FetchDescriptor<Reminder>())
+        for reminder in rems { context.delete(reminder) }
         
-        // Delete all profiles
-        let profiles = try context.fetch(FetchDescriptor<Profile>())
-        for profile in profiles {
-            context.delete(profile)
-        }
+        let profs = try context.fetch(FetchDescriptor<Profile>())
+        for profile in profs { context.delete(profile) }
         
         try context.save()
-        
-        // Clear state
-        currentProfile = nil
-        self.reminders = []
-        allProfiles = []
-        
-        // Recreate default profile
-        ensureDefaultProfile()
-        refreshProfiles()
-        refreshReminders()
     }
 }
 

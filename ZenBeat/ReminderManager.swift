@@ -46,10 +46,10 @@ class ReminderManager: ObservableObject {
     private var timerCancellable: AnyCancellable?
     
     // Cache for last entry times to avoid expensive DB queries every second
-    private var lastEntryTimes: [UUID: Date] = [:]
+    var lastEntryTimes: [UUID: Date] = [:]
     
     // Track which reminders we've already shown the overlay for (reset when they're no longer due)
-    private var notifiedReminderIds: Set<UUID> = []
+    var notifiedReminderIds: Set<UUID> = []
     
     // Track when the overlay was shown to calculate duration
     private var overlayShowTime: Date?
@@ -128,14 +128,6 @@ class ReminderManager: ObservableObject {
                         reminder.profile = defaultProfile
                     }
                 }
-            }
-            
-            // If genuinely no reminders existed, create the welcome one
-            let existingCount = (try? context.fetchCount(reminderDesc)) ?? 0
-            if existingCount == 0 {
-                 let welcomeReminder = Reminder(name: "Drink water", intervalMinutes: 60, dailyGoal: 10)
-                 welcomeReminder.profile = defaultProfile
-                 context.insert(welcomeReminder)
             }
             
             try? context.save()

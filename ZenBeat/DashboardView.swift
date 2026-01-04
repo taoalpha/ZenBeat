@@ -47,6 +47,7 @@ struct DashboardView: View {
                     }
                 }
                 .menuStyle(.borderlessButton)
+                .pointingCursor()
                 .fixedSize()
                 
                 Spacer()
@@ -65,6 +66,7 @@ struct DashboardView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .pointingCursor()
                 } else {
                     Menu {
                         Button("15 minutes") { manager.snooze(for: 15) }
@@ -76,6 +78,7 @@ struct DashboardView: View {
                             .font(.system(size: 13))
                     }
                     .menuStyle(.borderlessButton)
+                    .pointingCursor()
                     .fixedSize()
                 }
                 
@@ -92,6 +95,7 @@ struct DashboardView: View {
                         .font(.system(size: 14, weight: .semibold))
                 }
                 .buttonStyle(.plain)
+                .pointingCursor()
             }
             .padding()
             .background(Color(nsColor: .windowBackgroundColor))
@@ -227,6 +231,7 @@ struct ReminderRow: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.mini)
+                    .pointingCursor()
                 }
             }
         }
@@ -257,6 +262,7 @@ struct ReminderRow: View {
                 NSApp.activate(ignoringOtherApps: true)
             }
         }
+        .pointingCursor()
     }
     
     var isGoalReached: Bool {
