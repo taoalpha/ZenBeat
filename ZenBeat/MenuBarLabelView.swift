@@ -13,10 +13,15 @@ struct MenuBarLabelView: View {
     @Environment(\.modelContext) private var modelContext
     
     var body: some View {
-        Text(manager.nextEventTitle)
-            .font(.system(.body, design: .monospaced))
-            .onAppear {
-                manager.setModelContext(modelContext)
+        HStack(spacing: 4) {
+            if manager.isSnoozing {
+                Image(systemName: "bell.slash.fill")
             }
+            Text(manager.nextEventTitle)
+                .font(.system(.body, design: .monospaced))
+        }
+        .onAppear {
+            manager.setModelContext(modelContext)
+        }
     }
 }

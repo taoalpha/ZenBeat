@@ -50,6 +50,35 @@ struct DashboardView: View {
                 .fixedSize()
                 
                 Spacer()
+                
+                // Snooze Button
+                if manager.isSnoozing {
+                    Button {
+                        manager.cancelSnooze()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "bell.slash.fill")
+                                .foregroundStyle(.orange)
+                            Text(formatSnoozeTime(manager.snoozeTimeRemaining))
+                                .font(.caption)
+                                .monospacedDigit()
+                        }
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Menu {
+                        Button("15 minutes") { manager.snooze(for: 15) }
+                        Button("30 minutes") { manager.snooze(for: 30) }
+                        Button("1 hour") { manager.snooze(for: 60) }
+                        Button("2 hours") { manager.snooze(for: 120) }
+                    } label: {
+                        Image(systemName: "bell.slash")
+                            .font(.system(size: 13))
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                }
+                
                 Button {
                     // Open settings and trigger add new reminder
                     openWindow(id: "settings")
@@ -89,6 +118,15 @@ struct DashboardView: View {
             }
         }
         .frame(width: 300, height: 400)
+    }
+    
+    private func formatSnoozeTime(_ interval: TimeInterval) -> String {
+        let minutes = Int(interval) / 60
+        let seconds = Int(interval) % 60
+        if minutes >= 60 {
+            return "\(minutes / 60)h \(minutes % 60)m"
+        }
+        return "\(minutes):\(String(format: "%02d", seconds))"
     }
 }
 

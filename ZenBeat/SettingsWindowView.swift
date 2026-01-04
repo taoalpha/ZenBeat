@@ -138,6 +138,7 @@ struct GeneralSettingsView: View {
     @AppStorage("dndEnabled") private var dndEnabled = false
     @AppStorage("dndStartTime") private var dndStartTime: Double = 20 * 3600 // 20:00 default
     @AppStorage("dndEndTime") private var dndEndTime: Double = 8 * 3600   // 08:00 default
+    @State private var showEraseConfirmation = false
     
     var body: some View {
         ScrollView {
@@ -269,15 +270,46 @@ struct GeneralSettingsView: View {
                             } label: {
                                 Label("Import Backup", systemImage: "square.and.arrow.down")
                             }
-                            .buttonStyle(.bordered)
+                        .buttonStyle(.bordered)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                }
+                
+                // Danger Zone
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Danger Zone")
+                            .font(.headline)
+                            .foregroundStyle(.red)
+                        
+                        Text("Permanently delete all profiles, reminders, and history. This cannot be undone.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        
+                        Button(role: .destructive) {
+                            showEraseConfirmation = true
+                        } label: {
+                            Label("Erase All Data", systemImage: "trash.fill")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
                 }
                 
                 Spacer()
             }
             .padding()
+        }
+        .confirmationDialog("Erase All Data?", isPresented: $showEraseConfirmation, titleVisibility: .visible) {
+            Button("Erase Everything", role: .destructive) {
+                eraseAllData()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will permanently delete all your profiles, reminders, and history. This action cannot be undone.")
         }
     }
     
@@ -368,6 +400,15 @@ struct GeneralSettingsView: View {
                     print("Failed to restore backup: \(error)")
                 }
             }
+        }
+    }
+    
+    private func eraseAllData() {
+        do {
+            try manager.eraseAllData()
+            print("All data erased successfully")
+        } catch {
+            print("Failed to erase data: \(error)")
         }
     }
 }

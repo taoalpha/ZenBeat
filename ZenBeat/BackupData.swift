@@ -172,6 +172,42 @@ extension ReminderManager {
         refreshProfiles()
         refreshReminders()
     }
+    
+    func eraseAllData() throws {
+        guard let context = modelContext else {
+            throw BackupError.noContext
+        }
+        
+        // Delete all entries first (due to relationships)
+        let entries = try context.fetch(FetchDescriptor<ReminderEntry>())
+        for entry in entries {
+            context.delete(entry)
+        }
+        
+        // Delete all reminders
+        let reminders = try context.fetch(FetchDescriptor<Reminder>())
+        for reminder in reminders {
+            context.delete(reminder)
+        }
+        
+        // Delete all profiles
+        let profiles = try context.fetch(FetchDescriptor<Profile>())
+        for profile in profiles {
+            context.delete(profile)
+        }
+        
+        try context.save()
+        
+        // Clear state
+        currentProfile = nil
+        self.reminders = []
+        allProfiles = []
+        
+        // Recreate default profile
+        ensureDefaultProfile()
+        refreshProfiles()
+        refreshReminders()
+    }
 }
 
 enum BackupError: LocalizedError {

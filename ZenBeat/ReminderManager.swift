@@ -29,6 +29,18 @@ class ReminderManager: ObservableObject {
     @Published var currentProfile: Profile?
     @Published var allProfiles: [Profile] = []
     
+    // Snooze State
+    @Published var snoozeEndTime: Date? = nil
+    
+    var isSnoozing: Bool {
+        guard let endTime = snoozeEndTime else { return false }
+        return Date() < endTime
+    }
+    
+    var snoozeTimeRemaining: TimeInterval {
+        guard let endTime = snoozeEndTime else { return 0 }
+        return max(0, endTime.timeIntervalSinceNow)
+    }
     // MARK: - Internal/Private
     var modelContext: ModelContext?
     private var timerCancellable: AnyCancellable?
@@ -86,6 +98,16 @@ class ReminderManager: ObservableObject {
         }
     }
     
+    // MARK: - Snooze
+    
+    func snooze(for minutes: Int) {
+        snoozeEndTime = Date().addingTimeInterval(TimeInterval(minutes * 60))
+    }
+    
+    func cancelSnooze() {
+        snoozeEndTime = nil
+    }
+    
     func ensureDefaultProfile() {
         guard let context = modelContext else { return }
         
@@ -95,7 +117,6 @@ class ReminderManager: ObservableObject {
         
         if profileCount == 0 {
             // Migration: Create Default Profile
-            print("Creating Default Profile...")
             let defaultProfile = Profile(name: "Default", icon: "person.circle")
             context.insert(defaultProfile)
             
@@ -246,7 +267,7 @@ class ReminderManager: ObservableObject {
                 self.activeOverlayReminder = next
                 
                 // Trigger overlay if not already notified for this reminder
-                if !notifiedReminderIds.contains(next.id) && !showTimeUpOverlay {
+                if !notifiedReminderIds.contains(next.id) && !showTimeUpOverlay && !isSnoozing {
                     notifiedReminderIds.insert(next.id)
                     showTimeUpOverlay = true
                     overlayShowTime = Date()
