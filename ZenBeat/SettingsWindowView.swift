@@ -246,6 +246,35 @@ struct GeneralSettingsView: View {
                     .padding(12)
                 }
                 
+                // Backup & Restore Section
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Backup & Restore")
+                            .font(.headline)
+                        
+                        Text("Export all your profiles, reminders, and history to a file. Import to restore on another device.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        
+                        HStack(spacing: 12) {
+                            Button {
+                                exportBackup()
+                            } label: {
+                                Label("Export Backup", systemImage: "square.and.arrow.up")
+                            }
+                            .buttonStyle(.bordered)
+                            
+                            Button {
+                                importBackup()
+                            } label: {
+                                Label("Import Backup", systemImage: "square.and.arrow.down")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .padding(12)
+                }
+                
                 Spacer()
             }
             .padding()
@@ -298,6 +327,49 @@ struct GeneralSettingsView: View {
             }
         }
     }
+    
+    private func exportBackup() {
+        guard let data = manager.exportBackup() else {
+            print("Failed to create backup")
+            return
+        }
+        
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.json]
+        savePanel.nameFieldStringValue = "zenbeat_backup_\(Date().formatted(.dateTime.year().month().day())).json"
+        savePanel.title = "Export Backup"
+        
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                do {
+                    try data.write(to: url)
+                    print("Backup saved to \(url)")
+                } catch {
+                    print("Failed to save backup: \(error)")
+                }
+            }
+        }
+    }
+    
+    private func importBackup() {
+        let openPanel = NSOpenPanel()
+        openPanel.allowedContentTypes = [.json]
+        openPanel.allowsMultipleSelection = false
+        openPanel.title = "Import Backup"
+        openPanel.message = "Select a ZenBeat backup file to restore."
+        
+        openPanel.begin { response in
+            if response == .OK, let url = openPanel.url {
+                do {
+                    let data = try Data(contentsOf: url)
+                    try manager.importBackup(from: data)
+                    print("Backup restored successfully")
+                } catch {
+                    print("Failed to restore backup: \(error)")
+                }
+            }
+        }
+    }
 }
 
 struct RemindersSettingsView: View {
@@ -306,23 +378,29 @@ struct RemindersSettingsView: View {
     @EnvironmentObject var manager: ReminderManager
     @Environment(\.modelContext) private var modelContext
     
-    // Use manager.reminders which is already filtered by currentProfile
-    var reminders: [Reminder] { manager.reminders }
+    // Local state for viewing reminders (does NOT change active profile)
+    @State private var selectedProfile: Profile?
+    
+    // Reminders filtered by selectedProfile (for management view only)
+    var reminders: [Reminder] {
+        guard let profile = selectedProfile else { return [] }
+        return (profile.reminders ?? []).filter { !$0.isArchived }
+    }
     
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 HStack {
-                    // Profile Picker
+                    // Profile Picker (local only - for management)
                     Menu {
                         ForEach(manager.allProfiles, id: \.id) { profile in
                             Button {
-                                manager.switchProfile(to: profile)
+                                selectedProfile = profile
                             } label: {
                                 HStack {
                                     Image(systemName: profile.icon)
                                     Text(profile.name)
-                                    if profile.id == manager.currentProfile?.id {
+                                    if profile.id == selectedProfile?.id {
                                         Image(systemName: "checkmark")
                                     }
                                 }
@@ -330,7 +408,7 @@ struct RemindersSettingsView: View {
                         }
                     } label: {
                         HStack(spacing: 6) {
-                            if let profile = manager.currentProfile {
+                            if let profile = selectedProfile {
                                 Image(systemName: profile.icon)
                                 Text(profile.name)
                                     .font(.headline)
@@ -382,6 +460,12 @@ struct RemindersSettingsView: View {
                 Spacer()
             }
             .padding()
+        }
+        .onAppear {
+            // Initialize with current active profile
+            if selectedProfile == nil {
+                selectedProfile = manager.currentProfile
+            }
         }
     }
     
@@ -495,6 +579,8 @@ struct ReminderEditSheet: View {
                 
                 Button(L10n.save) {
                     if isNew && !reminder.name.isEmpty {
+                        // Assign to current profile
+                        reminder.profile = manager.currentProfile
                         modelContext.insert(reminder)
                     }
                     try? modelContext.save()

@@ -29,8 +29,8 @@ class ReminderManager: ObservableObject {
     @Published var currentProfile: Profile?
     @Published var allProfiles: [Profile] = []
     
-    // MARK: - Private
-    private var modelContext: ModelContext?
+    // MARK: - Internal/Private
+    var modelContext: ModelContext?
     private var timerCancellable: AnyCancellable?
     
     // Cache for last entry times to avoid expensive DB queries every second
