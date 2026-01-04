@@ -1,0 +1,77 @@
+/* 
+  Localizable.strings
+  ZenBeat
+
+  English localization strings
+*/
+
+// MARK: - General
+"general" = "General";
+"settings" = "Settings";
+"reminders" = "Reminders";
+"cancel" = "Cancel";
+"save" = "Save";
+"edit" = "Edit";
+"add" = "Add";
+"done" = "Done";
+"skip" = "Skip";
+"close" = "Close";
+"log" = "Log";
+
+// MARK: - Settings
+"launch_at_login" = "Launch at Login";
+"export_logs" = "Export Logs";
+"export_logs_description" = "Download all reminder history as CSV";
+"export_csv" = "Export CSV";
+"no_reminders_title" = "No reminders yet";
+"no_reminders_subtitle" = "Add one to get started!";
+"language" = "Language";
+"about" = "About";
+"version" = "Version";
+"profiles" = "Profiles";
+
+// MARK: - Do Not Disturb
+"do_not_disturb" = "Do Not Disturb";
+"dnd_description" = "Mute reminders during specific hours";
+"start_time" = "Start Time";
+"end_time" = "End Time";
+
+// MARK: - Reminder Edit
+"new_reminder" = "New Reminder";
+"edit_reminder" = "Edit Reminder";
+"type" = "Type";
+"interval_mode" = "Interval";
+"fixed_time_mode" = "Fixed Time";
+"times" = "Times";
+"add_time" = "Add Time";
+"name" = "Name";
+"name_placeholder" = "e.g., Stretch, Drink Water";
+"interval" = "Interval";
+"custom" = "Custom:";
+"min" = "min";
+"daily_reps" = "Daily Reps";
+
+// MARK: - Dashboard
+"ready" = "READY";
+"reps" = "reps";
+"reps_per_day" = "reps/day";
+
+// MARK: - Time Up Overlay
+"times_up" = "⏰ TIME'S UP!";
+"time_for" = "Time for %@!";
+"done_button" = "Done";
+"no_active_reminder" = "No active reminder found.";
+
+// MARK: - Today Overlay
+"todays" = "Today's %@";
+"goal_reached" = "🏆 Goal Reached!";
+"next_reminder_in" = "Next reminder in";
+"no_active_reminders" = "No active reminders.";
+
+// MARK: - Menu Bar
+"no_reminders" = "No Reminders";
+"ready_label" = "Ready: %@";
+"until" = "until";
+
+// MARK: - Interval Display
+"every_x_min" = "Every %d min";

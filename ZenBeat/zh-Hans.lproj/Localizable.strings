@@ -1,0 +1,77 @@
+/* 
+  Localizable.strings
+  ZenBeat
+
+  Simplified Chinese localization strings
+*/
+
+// MARK: - General
+"general" = "通用";
+"settings" = "设置";
+"reminders" = "提醒";
+"cancel" = "取消";
+"save" = "保存";
+"edit" = "编辑";
+"add" = "添加";
+"done" = "完成";
+"skip" = "跳过";
+"close" = "关闭";
+"log" = "记录";
+
+// MARK: - Settings
+"launch_at_login" = "登录时启动";
+"export_logs" = "导出记录";
+"export_logs_description" = "将所有提醒历史下载为CSV文件";
+"export_csv" = "导出CSV";
+"no_reminders_title" = "暂无提醒";
+"no_reminders_subtitle" = "添加一个开始吧！";
+"language" = "语言";
+"about" = "关于";
+"version" = "版本";
+"profiles" = "情景";
+
+// MARK: - Do Not Disturb
+"do_not_disturb" = "勿扰模式";
+"dnd_description" = "在指定时段内静音提醒";
+"start_time" = "开始时间";
+"end_time" = "结束时间";
+
+// MARK: - Reminder Edit
+"new_reminder" = "新建提醒";
+"edit_reminder" = "编辑提醒";
+"type" = "类型";
+"interval_mode" = "间隔模式";
+"fixed_time_mode" = "固定时间";
+"times" = "时间";
+"add_time" = "添加时间";
+"name" = "名称";
+"name_placeholder" = "例如：拉伸、喝水";
+"interval" = "间隔";
+"custom" = "自定义：";
+"min" = "分钟";
+"daily_reps" = "每日次数";
+
+// MARK: - Dashboard
+"ready" = "就绪";
+"reps" = "次";
+"reps_per_day" = "次/天";
+
+// MARK: - Time Up Overlay
+"times_up" = "⏰ 时间到！";
+"time_for" = "该做%@了！";
+"done_button" = "完成";
+"no_active_reminder" = "没有活动的提醒。";
+
+// MARK: - Today Overlay
+"todays" = "今日%@";
+"goal_reached" = "🏆 目标达成！";
+"next_reminder_in" = "下次提醒";
+"no_active_reminders" = "暂无活动提醒。";
+
+// MARK: - Menu Bar
+"no_reminders" = "无提醒";
+"ready_label" = "就绪：%@";
+"until" = "后";
+
+// MARK: - Interval Display
+"every_x_min" = "每%d分钟";
