@@ -41,6 +41,24 @@ class ReminderManager: ObservableObject {
         guard let endTime = snoozeEndTime else { return 0 }
         return max(0, endTime.timeIntervalSinceNow)
     }
+    // MARK: - Filtered Properties
+    
+    var upcomingReminders: [Reminder] {
+        let dndEnd = getLatestEffectiveDNDEndTime()
+        let now = Date()
+        return reminders.filter { !($0.isDailyGoalReached(lastEntry: getLastEntryTime(for: $0))) }
+            .sorted { r1, r2 in
+                let d1 = r1.nextDueDate(from: now, dndEnd: dndEnd, lastEntryOverride: getLastEntryTime(for: r1))
+                let d2 = r2.nextDueDate(from: now, dndEnd: dndEnd, lastEntryOverride: getLastEntryTime(for: r2))
+                return d1 < d2
+            }
+    }
+    
+    var completedReminders: [Reminder] {
+        reminders.filter { $0.isDailyGoalReached(lastEntry: getLastEntryTime(for: $0)) }
+            .sorted { $0.name < $1.name }
+    }
+    
     // MARK: - Internal/Private
     var modelContext: ModelContext?
     private var timerCancellable: AnyCancellable?
@@ -126,6 +144,7 @@ class ReminderManager: ObservableObject {
     func switchProfile(to profile: Profile) {
         currentProfile = profile
         UserDefaults.standard.set(profile.id.uuidString, forKey: "selectedProfileId")
+        notifiedReminderIds.removeAll() // Clear state when switching profiles
         refreshReminders()
     }
     
@@ -157,7 +176,12 @@ class ReminderManager: ObservableObject {
                 predicate: #Predicate { $0.profile?.id == profileId && !$0.isArchived },
                 sortBy: [SortDescriptor(\.createdAt)]
             )
-            reminders = try context.fetch(descriptor)
+            let newReminders = try context.fetch(descriptor)
+            
+            // If the current reminders list changed significantly, we might want to clear notified set
+            // but usually refreshReminders is called for UI updates too.
+            // Let's just update the list.
+            reminders = newReminders
             updateNextEvent()
         } catch {
             print("Failed to fetch reminders for profile: \(error)")
@@ -207,13 +231,6 @@ class ReminderManager: ObservableObject {
         let now = Date()
         
         for reminder in reminders {
-            // Skip if daily goal reached (if set)
-            // Skip if daily goal reached
-            let goal = reminder.effectiveDailyGoal
-            if goal > 0 && reminder.todayCount >= goal {
-                continue
-            }
-            
             var lastEntryDate: Date? = nil
             if let lastCached = lastEntryTimes[reminder.id] {
                 lastEntryDate = lastCached
@@ -223,6 +240,10 @@ class ReminderManager: ObservableObject {
                 if let date = lastEntryDate {
                     lastEntryTimes[reminder.id] = date
                 }
+            }
+
+            if reminder.isDailyGoalReached(lastEntry: lastEntryDate) {
+                continue
             }
             
             let dndEnd = getLatestEffectiveDNDEndTime()
@@ -244,13 +265,18 @@ class ReminderManager: ObservableObject {
         if let next = nextRem {
             if minTimeRemaining <= 0 {
                 nextEventTitle = L10n.readyLabel(next.name)
-                self.activeOverlayReminder = next
                 
                 // Trigger overlay if not already notified for this reminder
                 if !notifiedReminderIds.contains(next.id) && !showTimeUpOverlay && !isSnoozing {
+                    activeOverlayReminder = next
                     notifiedReminderIds.insert(next.id)
                     showTimeUpOverlay = true
                     overlayShowTime = Date()
+                } else if showTimeUpOverlay {
+                    // If overlay is already up, only update activeOverlayReminder if it's nil or no longer due
+                    if activeOverlayReminder == nil {
+                        activeOverlayReminder = next
+                    }
                 }
             } else {
                 nextEventTitle = "\(formatShortTime(minTimeRemaining)) \(L10n.until) \(next.name)"
@@ -321,13 +347,16 @@ class ReminderManager: ObservableObject {
                 // Found another due reminder
                 activeOverlayReminder = reminder
                 notifiedReminderIds.insert(reminder.id)
+                overlayShowTime = Date() // Reset start time for the next reminder in sequence
                 return
             }
         }
         
         // No more due reminders - close the overlay
         showTimeUpOverlay = false
+        activeOverlayReminder = nil
         overlayShowTime = nil
+        notifiedReminderIds.removeAll() // Clear notifications when the entire due sequence is finished or closed
     }
     
     private func isInDNDMode() -> Bool {
@@ -414,35 +443,7 @@ class ReminderManager: ObservableObject {
     }
 
     
-    // MARK: - Export
-    func exportDataCSV() -> String {
-        guard let context = modelContext else { return "" }
-        
-        do {
-            let descriptor = FetchDescriptor<ReminderEntry>(
-                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
-            )
-            let entries = try context.fetch(descriptor)
-            
-            var csv = "Timestamp,Reminder,Count,Duration (s),Status\n"
-            let dateFormatter = ISO8601DateFormatter()
-            dateFormatter.formatOptions = [.withInternetDateTime]
-            
-            for entry in entries {
-                let timestamp = dateFormatter.string(from: entry.timestamp)
-                let name = entry.reminder?.name ?? entry.reminderNameRaw
-                let escapedName = name.replacingOccurrences(of: "\"", with: "\"\"")
-                let durationStr = entry.duration.map { String(format: "%.1f", $0) } ?? ""
-                let status = entry.isSkipped ? "Skipped" : "Completed"
-                csv += "\(timestamp),\"\(escapedName)\",\(entry.count),\(durationStr),\(status)\n"
-            }
-            
-            return csv
-        } catch {
-            print("Failed to export data: \(error)")
-            return ""
-        }
-    }
+
     
     // MARK: - Helpers
     func getLastEntryTime(for reminder: Reminder) -> Date? {

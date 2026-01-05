@@ -27,13 +27,12 @@ enum L10n {
     static var done: String { localized("done") }
     static var skip: String { localized("skip") }
     static var close: String { localized("close") }
+    static var delete: String { localized("delete") }
     static var log: String { localized("log") }
     
     // MARK: - Settings
     static var launchAtLogin: String { localized("launch_at_login") }
-    static var exportLogs: String { localized("export_logs") }
-    static var exportLogsDescription: String { localized("export_logs_description") }
-    static var exportCSV: String { localized("export_csv") }
+
     static var noRemindersTitle: String { localized("no_reminders_title") }
     static var noRemindersSubtitle: String { localized("no_reminders_subtitle") }
     static var language: String { localized("language") }
@@ -64,8 +63,12 @@ enum L10n {
     
     // MARK: - Dashboard
     static var ready: String { localized("ready") }
-    static var reps: String { localized("reps") }
-    static var repsPerDay: String { localized("reps_per_day") }
+    static var upcoming: String { localized("upcoming") }
+    static var completed: String { localized("completed") }
+    static var seeRecords: String { localized("see_records") }
+    static var deleteConfirmTitle: String { localized("delete_confirm_title") }
+    static var deleteConfirmMessage: String { localized("delete_confirm_message") }
+    static var timesPerDay: String { localized("reps_per_day") }
     
     // MARK: - Time Up Overlay
     static var timesUp: String { localized("times_up") }
@@ -95,11 +98,11 @@ enum L10n {
         String(format: localized("every_x_min"), minutes)
     }
     
-    static func xRepsPerDay(_ reps: Int) -> String {
-        "\(reps) \(repsPerDay)"
+    static func xTimesPerDay(_ count: Int) -> String {
+        "\(count) \(timesPerDay)"
     }
     
-    static func xOfYReps(_ current: Int, _ goal: Int) -> String {
-        "\(current) / \(goal) \(reps)"
+    static func xOfYTimes(_ current: Int, _ goal: Int) -> String {
+        "\(current) / \(goal) \(times)"
     }
 }

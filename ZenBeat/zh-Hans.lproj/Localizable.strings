@@ -16,13 +16,12 @@
 "done" = "完成";
 "skip" = "跳过";
 "close" = "关闭";
+"delete" = "删除";
 "log" = "记录";
 
 // MARK: - Settings
 "launch_at_login" = "登录时启动";
-"export_logs" = "导出记录";
-"export_logs_description" = "将所有提醒历史下载为CSV文件";
-"export_csv" = "导出CSV";
+
 "no_reminders_title" = "暂无提醒";
 "no_reminders_subtitle" = "添加一个开始吧！";
 "language" = "语言";
@@ -53,6 +52,11 @@
 
 // MARK: - Dashboard
 "ready" = "就绪";
+"upcoming" = "即将到来";
+"completed" = "已完成";
+"see_records" = "查看历史";
+"delete_confirm_title" = "删除提醒？";
+"delete_confirm_message" = "您确定要删除此提醒吗？";
 "reps" = "次";
 "reps_per_day" = "次/天";
 
@@ -64,7 +68,7 @@
 
 // MARK: - Today Overlay
 "todays" = "今日%@";
-"goal_reached" = "🏆 目标达成！";
+"goal_reached" = "🏆 已全部完成！";
 "next_reminder_in" = "下次提醒";
 "no_active_reminders" = "暂无活动提醒。";
 

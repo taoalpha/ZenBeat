@@ -58,10 +58,10 @@ struct SettingsWindowView: View {
                 window.standardWindowButton(.zoomButton)?.isHidden = true
             }
         })
-        .sheet(item: $editingReminder) { reminder in
+        .popover(item: $editingReminder) { reminder in
             ReminderEditSheet(reminder: reminder, isNew: false)
         }
-        .sheet(isPresented: $isAddingNew) {
+        .popover(isPresented: $isAddingNew) {
             ReminderEditSheet(reminder: Reminder(name: "", intervalMinutes: 60, dailyGoal: 5), isNew: true)
         }
         .onChange(of: manager.reminderToEdit) { _, newValue in
@@ -113,10 +113,10 @@ struct SidebarButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .frame(width: 20)
-                    .foregroundStyle(isSelected ? .white : .primary)
+                    Image(systemName: icon)
+                        .font(.system(size: 14))
+                        .frame(width: 20, alignment: .center)
+                        .foregroundStyle(isSelected ? .white : .primary)
                 Text(title)
                     .foregroundStyle(isSelected ? .white : .primary)
                 Spacer()
@@ -174,24 +174,7 @@ struct GeneralSettingsView: View {
                             .fixedSize()
                         }
                         
-                        Divider()
-                        
-                        // Export Logs Button
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(L10n.exportLogs)
-                                    .fontWeight(.medium)
-                                Text(L10n.exportLogsDescription)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Button(L10n.exportCSV) {
-                                exportLogs()
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
+
                     }
                     .padding(12)
                 }
@@ -298,24 +281,7 @@ struct GeneralSettingsView: View {
         }
     }
     
-    private func exportLogs() {
-        let csvData = manager.exportDataCSV()
-        
-        let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.commaSeparatedText]
-        savePanel.nameFieldStringValue = "zenbeat_logs.csv"
-        savePanel.title = L10n.exportLogs
-        
-        savePanel.begin { response in
-            if response == .OK, let url = savePanel.url {
-                do {
-                    try csvData.write(to: url, atomically: true, encoding: .utf8)
-                } catch {
-                    print("Failed to save CSV: \(error)")
-                }
-            }
-        }
-    }
+
     
     private func exportBackup() {
         guard let data = manager.exportBackup() else {
@@ -486,6 +452,8 @@ struct ReminderRowSettings: View {
     let reminder: Reminder
     let onEdit: () -> Void
     let onDelete: () -> Void
+    @State private var showRecordsSheet = false
+    @State private var showDeleteConfirmation = false
     
     var body: some View {
         GroupBox {
@@ -493,29 +461,58 @@ struct ReminderRowSettings: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(reminder.name)
                         .font(.headline)
-                    Text("\(L10n.everyXMin(reminder.intervalMinutes)) • \(L10n.xRepsPerDay(reminder.effectiveDailyGoal))")
+                    Text("\(L10n.everyXMin(reminder.intervalMinutes)) • \(L10n.xTimesPerDay(reminder.effectiveDailyGoal))")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 
                 Spacer()
                 
-                Button(L10n.edit) {
-                    onEdit()
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                
-                Button {
-                    onDelete()
+                Menu {
+                    Button {
+                        showRecordsSheet = true
+                    } label: {
+                        Label(L10n.seeRecords, systemImage: "clock.arrow.circlepath")
+                    }
+                    
+                    Button {
+                        onEdit()
+                    } label: {
+                        Label(L10n.edit, systemImage: "pencil")
+                    }
+                    
+                    Divider()
+                    
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = true
+                    } label: {
+                        Label(L10n.delete, systemImage: "trash")
+                    }
                 } label: {
-                    Image(systemName: "trash")
-                        .foregroundStyle(.red)
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .pointingCursor()
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 4)
+        }
+        .confirmationDialog(L10n.deleteConfirmTitle, isPresented: $showDeleteConfirmation) {
+            Button(L10n.delete, role: .destructive) {
+                onDelete()
+            }
+            Button(L10n.cancel, role: .cancel) {}
+        } message: {
+            Text(L10n.deleteConfirmMessage)
+        }
+        .popover(isPresented: $showRecordsSheet) {
+            ReminderRecordsView(reminder: reminder)
         }
     }
 }
@@ -859,10 +856,10 @@ struct ProfilesSettingsView: View {
             manager.setModelContext(modelContext)
             manager.refreshProfiles()
         }
-        .sheet(isPresented: $showAddSheet) {
+        .popover(isPresented: $showAddSheet) {
             ProfileAddSheet(manager: manager)
         }
-        .sheet(item: $editingProfile) { profile in
+        .popover(item: $editingProfile) { profile in
             ProfileEditSheet(manager: manager, profile: profile)
         }
     }
@@ -883,6 +880,7 @@ struct ProfileCard: View {
                     .frame(width: 40, height: 40)
                 Image(systemName: profile.icon)
                     .font(.system(size: 18))
+                    .frame(width: 24, height: 24)
                     .foregroundStyle(isSelected ? .white : .primary)
             }
             
@@ -909,6 +907,8 @@ struct ProfileCard: View {
                 Image(systemName: "pencil.circle.fill")
                     .font(.title2)
                     .foregroundStyle(.secondary)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
             .pointingCursor()
@@ -952,8 +952,9 @@ struct ProfileAddSheet: View {
                     } label: {
                         Image(systemName: iconName)
                             .font(.title2)
-                            .padding(8)
+                            .frame(width: 32, height: 32)
                             .background(icon == iconName ? Color.accentColor.opacity(0.2) : Color.clear)
+                            .contentShape(Circle())
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -1024,8 +1025,9 @@ struct ProfileEditSheet: View {
                         } label: {
                             Image(systemName: iconName)
                                 .font(.title3)
-                                .padding(8)
+                                .frame(width: 32, height: 32)
                                 .background(icon == iconName ? Color.accentColor.opacity(0.2) : Color.clear)
+                                .contentShape(Circle())
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
@@ -1114,6 +1116,62 @@ struct ProfileEditSheet: View {
                 storage.wrappedValue = Double(seconds)
             }
         )
+    }
+}
+
+struct ReminderRecordsView: View {
+    let reminder: Reminder
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text(L10n.seeRecords)
+                    .font(.headline)
+                Spacer()
+                Button(L10n.close) {
+                    dismiss()
+                }
+                .buttonStyle(.plain)
+                .pointingCursor()
+            }
+            .padding()
+            
+            Divider()
+            
+            if let entries = reminder.entries, !entries.isEmpty {
+                List {
+                    ForEach(entries.sorted(by: { $0.timestamp > $1.timestamp }), id: \.id) { entry in
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(entry.timestamp.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.subheadline)
+                                if let duration = entry.duration {
+                                    Text("Duration: \(formatDuration(duration))")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            Spacer()
+                        }
+                    }
+                }
+                .listStyle(.plain)
+            } else {
+                ContentUnavailableView("No Records", systemImage: "clock")
+                    .padding()
+            }
+        }
+        .frame(width: 300, height: 400)
+    }
+    
+    private func formatDuration(_ interval: TimeInterval) -> String {
+        let minutes = Int(interval) / 60
+        let seconds = Int(interval) % 60
+        if minutes > 0 {
+            return "\(minutes)m \(seconds)s"
+        }
+        return "\(seconds)s"
     }
 }
 

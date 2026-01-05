@@ -10,6 +10,8 @@ import SwiftData
 
 struct DashboardView: View {
     @Environment(\.modelContext) var modelContext
+    @AppStorage("isUpcomingExpanded") private var isUpcomingExpanded = true
+    @AppStorage("isCompletedExpanded") private var isCompletedExpanded = false
     @EnvironmentObject var manager: ReminderManager
     @Environment(\.openWindow) var openWindow
     @ObservedObject private var i18n = LanguageManager.shared
@@ -26,6 +28,7 @@ struct DashboardView: View {
                         } label: {
                             HStack {
                                 Image(systemName: profile.icon)
+                                    .frame(width: 20, alignment: .center)
                                 Text(profile.name)
                                 if profile.id == manager.currentProfile?.id {
                                     Image(systemName: "checkmark")
@@ -37,6 +40,7 @@ struct DashboardView: View {
                     HStack(spacing: 4) {
                         if let profile = manager.currentProfile {
                             Image(systemName: profile.icon)
+                                .frame(width: 18, alignment: .center)
                             Text(profile.name)
                                 .font(.headline)
                         } else {
@@ -104,13 +108,40 @@ struct DashboardView: View {
             Divider()
             
             // Reminder List
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(manager.reminders) { reminder in
-                        ReminderRow(reminder: reminder)
+            ScrollView(showsIndicators: false) {
+                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    // Upcoming Section
+                    let upcoming = manager.upcomingReminders
+                    if !upcoming.isEmpty {
+                        Section(header: SectionHeader(title: L10n.upcoming, count: upcoming.count, isExpanded: $isUpcomingExpanded)) {
+                            if isUpcomingExpanded {
+                                VStack(spacing: 12) {
+                                    ForEach(upcoming) { reminder in
+                                        ReminderRow(reminder: reminder)
+                                    }
+                                }
+                                .padding(.vertical, 8)
+                            }
+                        }
+                    }
+
+                    
+                    // Completed Section
+                    let completed = manager.completedReminders
+                    if !completed.isEmpty {
+                        Section(header: SectionHeader(title: L10n.completed, count: completed.count, isExpanded: $isCompletedExpanded)) {
+                            if isCompletedExpanded {
+                                VStack(spacing: 12) {
+                                    ForEach(completed) { reminder in
+                                        ReminderRow(reminder: reminder)
+                                    }
+                                }
+                                .padding(.vertical, 8)
+                            }
+                        }
                     }
                 }
-                .padding()
+                .padding(.horizontal)
             }
             
             if manager.reminders.isEmpty {
@@ -138,6 +169,41 @@ struct DashboardView: View {
     }
 }
 
+struct SectionHeader: View {
+    let title: String
+    let count: Int
+    @Binding var isExpanded: Bool
+    
+    var body: some View {
+        HStack {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.secondary)
+            
+            Text("\(count)")
+                .font(.system(size: 10, weight: .medium))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.secondary.opacity(0.1))
+                .clipShape(Capsule())
+            
+            Spacer()
+            
+            Image(systemName: "chevron.right")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(.secondary)
+                .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                .animation(.snappy, value: isExpanded)
+        }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            isExpanded.toggle()
+        }
+        .pointingCursor()
+    }
+}
+
 struct ReminderRow: View {
     let reminder: Reminder
     @EnvironmentObject var manager: ReminderManager
@@ -147,96 +213,12 @@ struct ReminderRow: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            // Countdown Circle
-            ZStack {
-                Circle()
-                    .stroke(lineWidth: 4)
-                    .opacity(0.2)
-                    .foregroundColor(isGoalReached ? .green : (isDue ? .red : .blue))
-                
-                Circle()
-                    .trim(from: 0.0, to: countdownProgress)
-                    .stroke(style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                    .foregroundColor(isGoalReached ? .green : (isDue ? .red : .blue))
-                    .rotationEffect(Angle(degrees: -90))
-                    .animation(.easeInOut(duration: 0.3), value: countdownProgress)
-                
-                if isDue {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.green)
-                } else {
-                    Text(shortTimeUntilDue)
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(width: 44, height: 44)
+            countdownCircle
             
             VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(reminder.name)
-                        .font(.system(.body, design: .rounded))
-                        .fontWeight(.medium)
-                    
-                    Spacer()
-                    
-                    // Status badge
-                    // Status badge
-                    if isGoalReached {
-                        Image(systemName: "trophy.fill")
-                            .font(.system(size: 10, weight: .bold))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 4)
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(4)
-                    } else if isDue {
-                        Text(L10n.ready)
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.green)
-                            .foregroundColor(.white)
-                            .cornerRadius(4)
-                    }
-                }
-                
-                // Progress Bar (daily goal)
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.gray.opacity(0.2))
-                        
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.orange)
-                            .frame(width: max(0, min(geometry.size.width, geometry.size.width * dailyProgress)))
-                    }
-                }
-                .frame(height: 4)
-                
-                HStack {
-                    let goal = reminder.effectiveDailyGoal
-                    if goal > 0 {
-                        Text(L10n.xOfYReps(reminder.todayCount, goal))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("\(reminder.todayCount) reps")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    Button(L10n.log) {
-                        manager.logReminder(reminder: reminder, count: 1)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.mini)
-                    .pointingCursor()
-                }
+                rowHeader
+                progressBar
+                rowActions
             }
         }
         .padding(10)
@@ -247,26 +229,118 @@ struct ReminderRow: View {
                 .stroke(isDue ? Color.green.opacity(0.6) : Color.clear, lineWidth: 2)
         )
         .onTapGesture(count: 2) {
-            manager.reminderToEdit = reminder
-            // Open settings window
-            if let existingWindow = NSApplication.shared.windows.first(where: { 
-                $0.title == L10n.settings
-            }), existingWindow.isVisible {
-                existingWindow.makeKeyAndOrderFront(nil)
-                NSApp.activate(ignoringOtherApps: true)
-            } else {
-                // We need to access openWindow from environment, but we are inside a subview without it passed implicitly?
-                // Actually, environment propogates. But we need to use it.
-                // Or we can rely on the parent updating manager state?
-                // The parent DashboardView has openWindow.
-                // Let's use NSApp delegate or just URL scheme if needed?
-                // wait, standard openWindow works if environment is available.
-                // I'll add @Environment(\.openWindow) to ReminderRow just in case.
-                openWindow(id: "settings")
-                NSApp.activate(ignoringOtherApps: true)
-            }
+            editReminder()
         }
         .pointingCursor()
+    }
+    
+    // MARK: - Subviews
+    
+    private var countdownCircle: some View {
+        ZStack {
+            Circle()
+                .stroke(lineWidth: 4)
+                .opacity(0.2)
+                .foregroundColor(isGoalReached ? .green : (isDue ? .red : .blue))
+            
+            Circle()
+                .trim(from: 0.0, to: countdownProgress)
+                .stroke(style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .foregroundColor(isGoalReached ? .green : (isDue ? .red : .blue))
+                .rotationEffect(Angle(degrees: -90))
+                .animation(.easeInOut(duration: 0.3), value: countdownProgress)
+            
+            if isDue {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.green)
+            } else {
+                Text(shortTimeUntilDue)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: 44, height: 44)
+    }
+    
+    private var rowHeader: some View {
+        HStack {
+            Text(reminder.name)
+                .font(.system(.body, design: .rounded))
+                .fontWeight(.medium)
+            
+            Spacer()
+            
+            if isGoalReached {
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 10, weight: .bold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(4)
+            } else if isDue {
+                Text(L10n.ready)
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.green)
+                    .foregroundColor(.white)
+                    .cornerRadius(4)
+            }
+        }
+    }
+    
+    private var progressBar: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.gray.opacity(0.2))
+                
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.orange)
+                    .frame(width: max(0, min(geometry.size.width, geometry.size.width * dailyProgress)))
+            }
+        }
+        .frame(height: 4)
+    }
+    
+    private var rowActions: some View {
+        HStack {
+            let goal = reminder.effectiveDailyGoal
+            if goal > 0 {
+                Text(L10n.xOfYTimes(reminder.todayCount, goal))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("\(reminder.todayCount) \(L10n.times)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            Button(L10n.log) {
+                manager.logReminder(reminder: reminder, count: 1)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.mini)
+            .pointingCursor()
+        }
+    }
+    
+    private func editReminder() {
+        manager.reminderToEdit = reminder
+        if let existingWindow = NSApplication.shared.windows.first(where: { 
+            $0.title == L10n.settings
+        }), existingWindow.isVisible {
+            existingWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        } else {
+            openWindow(id: "settings")
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
     
     var isGoalReached: Bool {
