@@ -535,6 +535,8 @@ struct ReminderEditSheet: View {
     @State private var intervalMinutes: Int = 60
     @State private var dailyGoal: Int = 5
     @State private var fixedTimes: [TimeInterval] = []
+    @State private var alignToClock: Bool = false
+    @State private var alignmentMinute: Int = 0
     
     @State private var newTimeSelection = Date()
     
@@ -548,39 +550,42 @@ struct ReminderEditSheet: View {
             Text(isNew ? L10n.newReminder : L10n.editReminder)
                 .font(.headline)
             
-            VStack(alignment: .leading, spacing: 16) {
-                // Name
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(L10n.name)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    TextField(L10n.namePlaceholder, text: $name)
-                        .textFieldStyle(.roundedBorder)
-                }
-                
-                // Type Picker
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(L10n.type)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Picker("", selection: $type) {
-                        Text(L10n.intervalMode).tag(ReminderType.interval)
-                        Text(L10n.fixedTimeMode).tag(ReminderType.fixed)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Name
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L10n.name)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField(L10n.namePlaceholder, text: $name)
+                            .textFieldStyle(.roundedBorder)
                     }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
-                }
-                
-                if type == .interval {
-                    // Interval settings
-                    intervalSection
                     
-                    // Daily Reps (Only shown in Interval mode)
-                    dailyRepsSection
-                } else {
-                    // Fixed Time settings
-                    fixedTimeSection
+                    // Type Picker
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L10n.type)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Picker("", selection: $type) {
+                            Text(L10n.intervalMode).tag(ReminderType.interval)
+                            Text(L10n.fixedTimeMode).tag(ReminderType.fixed)
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.segmented)
+                    }
+                    
+                    if type == .interval {
+                        // Interval settings
+                        intervalSection
+                        
+                        // Daily Reps (Only shown in Interval mode)
+                        dailyRepsSection
+                    } else {
+                        // Fixed Time settings
+                        fixedTimeSection
+                    }
                 }
+                .padding(.horizontal, 1) // Avoid clipping focus rings
             }
             
             Spacer()
@@ -601,7 +606,7 @@ struct ReminderEditSheet: View {
             }
         }
         .padding()
-        .frame(width: 380, height: 450)
+        .frame(width: 400, height: 550)
         .onAppear {
             loadData()
         }
@@ -613,6 +618,8 @@ struct ReminderEditSheet: View {
         intervalMinutes = reminder.intervalMinutes
         dailyGoal = reminder.dailyGoal ?? 5
         fixedTimes = reminder.fixedTimes ?? []
+        alignToClock = reminder.alignToClock
+        alignmentMinute = reminder.alignmentMinute
     }
     
     private func saveChanges() {
@@ -621,6 +628,8 @@ struct ReminderEditSheet: View {
         reminder.intervalMinutes = intervalMinutes
         reminder.dailyGoal = dailyGoal
         reminder.fixedTimes = fixedTimes
+        reminder.alignToClock = alignToClock
+        reminder.alignmentMinute = alignmentMinute
         
         if isNew {
             // Assign to current profile
@@ -661,6 +670,26 @@ struct ReminderEditSheet: View {
                 Text(L10n.min)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+            
+            Divider()
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Align to clock", isOn: $alignToClock)
+                    .font(.subheadline)
+                
+                if alignToClock {
+                    HStack {
+                        Text("Start at minute:")
+                            .font(.caption)
+                        TextField("", value: $alignmentMinute, format: .number)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 40)
+                        Text("(0-59)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
     }

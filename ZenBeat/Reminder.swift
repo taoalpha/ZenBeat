@@ -19,6 +19,8 @@ final class Reminder {
     
     var typeRaw: Int = 0
     var fixedTimes: [TimeInterval]? // Seconds from midnight
+    var alignToClock: Bool = false
+    var alignmentMinute: Int = 0
     
     var type: ReminderType {
         get { ReminderType(rawValue: typeRaw) ?? .interval }
@@ -38,13 +40,15 @@ final class Reminder {
     
     var profile: Profile?
     
-    init(name: String, intervalMinutes: Int, dailyGoal: Int?, type: ReminderType = .interval, fixedTimes: [TimeInterval]? = nil) {
+    init(name: String, intervalMinutes: Int, dailyGoal: Int?, type: ReminderType = .interval, fixedTimes: [TimeInterval]? = nil, alignToClock: Bool = false, alignmentMinute: Int = 0) {
         self.id = UUID()
         self.name = name
         self.intervalMinutes = intervalMinutes
         self.dailyGoal = dailyGoal
         self.typeRaw = type.rawValue
         self.fixedTimes = fixedTimes
+        self.alignToClock = alignToClock
+        self.alignmentMinute = alignmentMinute
         self.createdAt = Date()
         self.isArchived = false
         self.entries = []
@@ -147,15 +151,30 @@ final class Reminder {
             }
         } else {
             // INTERVAL LOGIC
-            let lastDNDEnd = dndEnd
             var baseDate = actualLastEntry ?? createdAt
             
-            if let dndEnd = lastDNDEnd, dndEnd > baseDate {
+            if let dndEnd = dndEnd, dndEnd > baseDate {
                 baseDate = dndEnd
             }
             
-            let intervalSeconds = TimeInterval(intervalMinutes * 60)
-            return baseDate.addingTimeInterval(intervalSeconds)
+            if alignToClock {
+                let calendar = Calendar.current
+                let startOfBase = calendar.startOfDay(for: baseDate)
+                let baseMinutes = Int(baseDate.timeIntervalSince(startOfBase) / 60)
+                
+                // Find next aligned minute after baseMinutes
+                let k = Int(ceil(Double(baseMinutes - alignmentMinute) / Double(intervalMinutes)))
+                var nextMinutes = alignmentMinute + k * intervalMinutes
+                
+                if nextMinutes <= baseMinutes {
+                    nextMinutes += intervalMinutes
+                }
+                
+                return startOfBase.addingTimeInterval(TimeInterval(nextMinutes * 60))
+            } else {
+                let intervalSeconds = TimeInterval(intervalMinutes * 60)
+                return baseDate.addingTimeInterval(intervalSeconds)
+            }
         }
     }
     
@@ -164,8 +183,20 @@ final class Reminder {
         
         if type == .interval {
             let actualLastEntry = lastEntryOverride ?? entries?.max(by: { $0.timestamp < $1.timestamp })?.timestamp ?? createdAt
-            let due = actualLastEntry.addingTimeInterval(TimeInterval(intervalMinutes * 60))
-            return date >= due
+            if alignToClock {
+                let calendar = Calendar.current
+                let startOfDay = calendar.startOfDay(for: date)
+                let currentMinutes = Int(date.timeIntervalSince(startOfDay) / 60)
+                
+                let k = Int(floor(Double(currentMinutes - alignmentMinute) / Double(intervalMinutes)))
+                let lastAlignedMinutes = alignmentMinute + k * intervalMinutes
+                let lastAlignedDate = startOfDay.addingTimeInterval(TimeInterval(lastAlignedMinutes * 60))
+                
+                return lastAlignedDate > actualLastEntry && lastAlignedDate >= createdAt && lastAlignedDate <= date
+            } else {
+                let due = actualLastEntry.addingTimeInterval(TimeInterval(intervalMinutes * 60))
+                return date >= due
+            }
         } else {
             // Fixed logic
             let times = (fixedTimes ?? []).sorted()
