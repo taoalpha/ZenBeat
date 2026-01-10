@@ -76,6 +76,13 @@ struct SettingsWindowView: View {
             selectedTab = .reminders
             isAddingNew = true
         }
+        .onAppear {
+            if let reminder = manager.reminderToEdit {
+                selectedTab = .reminders
+                editingReminder = reminder
+                manager.reminderToEdit = nil
+            }
+        }
     }
 }
 

@@ -109,7 +109,7 @@ struct DashboardView: View {
             
             // Reminder List
             ScrollView(showsIndicators: false) {
-                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                LazyVStack(spacing: 0) {
                     // Upcoming Section
                     let upcoming = manager.upcomingReminders
                     if !upcoming.isEmpty {
