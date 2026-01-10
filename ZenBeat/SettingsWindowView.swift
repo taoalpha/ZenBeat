@@ -503,6 +503,11 @@ struct ReminderRowSettings: View {
             .padding(.vertical, 8)
             .padding(.horizontal, 4)
         }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onEdit()
+        }
+        .pointingCursor()
         .confirmationDialog(L10n.deleteConfirmTitle, isPresented: $showDeleteConfirmation) {
             Button(L10n.delete, role: .destructive) {
                 onDelete()
@@ -518,11 +523,19 @@ struct ReminderRowSettings: View {
 }
 
 struct ReminderEditSheet: View {
-    @Bindable var reminder: Reminder
+    let reminder: Reminder
     var isNew: Bool
     @Environment(\.dismiss) var dismiss
     @Environment(\.modelContext) var modelContext
     @EnvironmentObject var manager: ReminderManager
+    
+    // Local editing state
+    @State private var name: String = ""
+    @State private var type: ReminderType = .interval
+    @State private var intervalMinutes: Int = 60
+    @State private var dailyGoal: Int = 5
+    @State private var fixedTimes: [TimeInterval] = []
+    
     @State private var newTimeSelection = Date()
     
     // Common interval presets
@@ -541,7 +554,7 @@ struct ReminderEditSheet: View {
                     Text(L10n.name)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    TextField(L10n.namePlaceholder, text: $reminder.name)
+                    TextField(L10n.namePlaceholder, text: $name)
                         .textFieldStyle(.roundedBorder)
                 }
                 
@@ -550,7 +563,7 @@ struct ReminderEditSheet: View {
                     Text(L10n.type)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Picker("", selection: $reminder.type) {
+                    Picker("", selection: $type) {
                         Text(L10n.intervalMode).tag(ReminderType.interval)
                         Text(L10n.fixedTimeMode).tag(ReminderType.fixed)
                     }
@@ -558,7 +571,7 @@ struct ReminderEditSheet: View {
                     .pickerStyle(.segmented)
                 }
                 
-                if reminder.type == .interval {
+                if type == .interval {
                     // Interval settings
                     intervalSection
                     
@@ -581,21 +594,42 @@ struct ReminderEditSheet: View {
                 Spacer()
                 
                 Button(L10n.save) {
-                    if isNew && !reminder.name.isEmpty {
-                        // Assign to current profile
-                        reminder.profile = manager.currentProfile
-                        modelContext.insert(reminder)
-                    }
-                    try? modelContext.save()
-                    manager.refreshReminders()
-                    dismiss()
+                    saveChanges()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(reminder.name.isEmpty)
+                .disabled(name.isEmpty)
             }
         }
         .padding()
         .frame(width: 380, height: 450)
+        .onAppear {
+            loadData()
+        }
+    }
+    
+    private func loadData() {
+        name = reminder.name
+        type = reminder.type
+        intervalMinutes = reminder.intervalMinutes
+        dailyGoal = reminder.dailyGoal ?? 5
+        fixedTimes = reminder.fixedTimes ?? []
+    }
+    
+    private func saveChanges() {
+        reminder.name = name
+        reminder.type = type
+        reminder.intervalMinutes = intervalMinutes
+        reminder.dailyGoal = dailyGoal
+        reminder.fixedTimes = fixedTimes
+        
+        if isNew {
+            // Assign to current profile
+            reminder.profile = manager.currentProfile
+            modelContext.insert(reminder)
+        }
+        try? modelContext.save()
+        manager.refreshReminders()
+        dismiss()
     }
     
     var intervalSection: some View {
@@ -607,13 +641,13 @@ struct ReminderEditSheet: View {
             HStack(spacing: 8) {
                 ForEach(intervalPresets, id: \.self) { mins in
                     Button {
-                        reminder.intervalMinutes = mins
+                        intervalMinutes = mins
                     } label: {
                         Text("\(mins)m")
                             .frame(minWidth: 40)
                     }
                     .buttonStyle(.bordered)
-                    .tint(reminder.intervalMinutes == mins ? .accentColor : .secondary)
+                    .tint(intervalMinutes == mins ? .accentColor : .secondary)
                     .controlSize(.small)
                 }
             }
@@ -621,7 +655,7 @@ struct ReminderEditSheet: View {
             HStack {
                 Text(L10n.custom)
                     .font(.caption)
-                TextField("", value: $reminder.intervalMinutes, format: .number)
+                TextField("", value: $intervalMinutes, format: .number)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 60)
                 Text(L10n.min)
@@ -640,13 +674,13 @@ struct ReminderEditSheet: View {
             HStack(spacing: 8) {
                 ForEach(goalPresets, id: \.self) { goal in
                     Button {
-                        reminder.dailyGoal = goal
+                        dailyGoal = goal
                     } label: {
                         Text("\(goal)")
                             .frame(minWidth: 30)
                     }
                     .buttonStyle(.bordered)
-                    .tint(reminder.dailyGoal == goal ? .accentColor : .secondary)
+                    .tint(dailyGoal == goal ? .accentColor : .secondary)
                     .controlSize(.small)
                 }
             }
@@ -654,7 +688,7 @@ struct ReminderEditSheet: View {
             HStack {
                 Text(L10n.custom)
                     .font(.caption)
-                TextField("", value: $reminder.dailyGoal, format: .number)
+                TextField("", value: $dailyGoal, format: .number)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 60)
             }
@@ -684,7 +718,7 @@ struct ReminderEditSheet: View {
             }
             
             List {
-                let times = (reminder.fixedTimes ?? []).sorted()
+                let times = fixedTimes.sorted()
                 ForEach(times, id: \.self) { time in
                     HStack {
                         Image(systemName: "clock")
@@ -718,52 +752,23 @@ struct ReminderEditSheet: View {
         return startOfDay.addingTimeInterval(seconds)
     }
     
-    private func updateTime(at index: Int, with date: Date, originalList: [TimeInterval]) {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.hour, .minute], from: date)
-        let newSeconds = TimeInterval((components.hour ?? 0) * 3600 + (components.minute ?? 0) * 60)
-        
-        var currentTimes = reminder.fixedTimes ?? []
-        // We need to find the specific element since original list was sorted differently potentially
-        // Actually, 'originalList' is sorted copy. 'currentTimes' is source of truth.
-        // It's safer to just modify the source array if we verify the value logic.
-        // But indices match if we sort 'currentTimes' too?
-        // UI uses 'times.sorted()'.
-        // Better logic: Find value 'originalList[index]' in 'currentTimes' and update it.
-        // What if duplicates?
-        // Let's assume user edits indices of sorted array.
-        // Steps:
-        // 1. Sort currentTimes (should match UI).
-        // 2. Update index.
-        // 3. Save back.
-        
-        currentTimes.sort()
-        if index < currentTimes.count {
-            currentTimes[index] = newSeconds
-            reminder.fixedTimes = currentTimes.sorted()
-        }
-    }
-    
     private func addTime(_ date: Date) {
         let cal = Calendar.current
         let comps = cal.dateComponents([.hour, .minute], from: date)
         let seconds = TimeInterval((comps.hour ?? 0) * 3600 + (comps.minute ?? 0) * 60)
         
-        var times = reminder.fixedTimes ?? []
         // Add if not exists (simple duplication check)
-        if !times.contains(where: { abs($0 - seconds) < 60 }) {
-            times.append(seconds)
-            reminder.fixedTimes = times.sorted()
+        if !fixedTimes.contains(where: { abs($0 - seconds) < 60 }) {
+            fixedTimes.append(seconds)
+            fixedTimes.sort()
         }
     }
     
     private func removeTime(_ time: TimeInterval) {
-        var times = reminder.fixedTimes ?? []
         // Remove first matching instance
-        if let idx = times.firstIndex(of: time) {
-            times.remove(at: idx)
+        if let idx = fixedTimes.firstIndex(of: time) {
+            fixedTimes.remove(at: idx)
         }
-        reminder.fixedTimes = times
     }
 }
 
